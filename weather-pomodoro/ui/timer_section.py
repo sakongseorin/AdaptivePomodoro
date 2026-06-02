@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from timer import setup_timer
 
 
 def create_timer_section(root):
@@ -30,3 +31,7 @@ def create_timer_section(root):
     )
 
     timer_label.pack()
+
+    setup_timer(root, timer_frame, timer_label)
+
+    return timer_frame
