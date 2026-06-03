@@ -1,5 +1,5 @@
 import customtkinter as ctk
-
+import tkinter as tk
 
 FONT_FAMILY = "Malgun Gothic"
 
@@ -9,7 +9,7 @@ class PomodoroTimer(ctk.CTkFrame):
         super().__init__(
             parent,
             width=420,
-            height=430,
+            height=500,
             corner_radius=32,
             fg_color="#FFFFFF",
             **kwargs,
@@ -31,15 +31,45 @@ class PomodoroTimer(ctk.CTkFrame):
             font=(FONT_FAMILY, 18),
             text_color="#6A6A6A",
         )
-        self.title_label.pack(pady=(42, 14))
+        self.title_label.pack(pady=(30, 10))
 
-        self.timer_label = ctk.CTkLabel(
+        self.canvas = tk.Canvas(
             self,
-            text="25:00",
-            font=(FONT_FAMILY, 68, "bold"),
-            text_color="#2C2C2C",
+            width=260,
+            height=260,
+            bg="#FFFFFF",
+            highlightthickness=0,
         )
-        self.timer_label.pack()
+        self.canvas.pack(pady=10)
+
+        self.canvas.create_oval(
+            20,
+            20,
+            240,
+            240,
+            outline="#E6D5C3",
+            width=12,
+        )
+
+        self.progress_arc = self.canvas.create_arc(
+            20,
+            20,
+            240,
+            240,
+            start=90,
+            extent=0,
+            style="arc",
+            outline="#D9B382",
+            width=12,
+        )
+
+        self.timer_text = self.canvas.create_text(
+            130,
+            130,
+            text="25:00",
+            font=(FONT_FAMILY, 34, "bold"),
+            fill="#2C2C2C",
+        )
 
         self.status_label = ctk.CTkLabel(
             self,
@@ -47,19 +77,13 @@ class PomodoroTimer(ctk.CTkFrame):
             font=(FONT_FAMILY, 15),
             text_color="#777777",
         )
-        self.status_label.pack(pady=(4, 24))
+        self.status_label.pack(pady=(5, 20))
 
-        self.progress = ctk.CTkProgressBar(
+        button_row = ctk.CTkFrame(
             self,
-            width=310,
-            height=12,
-            progress_color="#D9B382",
-            fg_color="#E6D5C3",
+            fg_color="transparent"
         )
-        self.progress.pack(pady=(0, 28))
-
-        button_row = ctk.CTkFrame(self, fg_color="transparent")
-        button_row.pack(pady=(0, 36))
+        button_row.pack(pady=(0, 30))
 
         self.toggle_button = ctk.CTkButton(
             button_row,
@@ -146,11 +170,24 @@ class PomodoroTimer(ctk.CTkFrame):
     def _update_display(self):
         minutes = self.remaining_seconds // 60
         seconds = self.remaining_seconds % 60
-        self.timer_label.configure(text=f"{minutes:02d}:{seconds:02d}")
 
+        self.canvas.itemconfig(
+            self.timer_text,
+            text=f"{minutes:02d}:{seconds:02d}"
+        )
+ 
         elapsed = self.total_seconds - self.remaining_seconds
         progress_value = elapsed / self.total_seconds if self.total_seconds else 0
-        self.progress.set(progress_value)
+
+        if progress_value <= 0:
+            extent = 0
+        else:
+            extent = -(360 * progress_value)
+
+        self.canvas.itemconfig(
+            self.progress_arc,
+            extent=extent
+        )
 
 
 def create_timer_section(root):
