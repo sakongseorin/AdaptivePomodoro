@@ -1,59 +1,83 @@
 import customtkinter as ctk
-
 from ui.timer_section import create_timer_section
-
+from weather.weather import WeatherTimerAnalyzer
 
 FONT_FAMILY = "Malgun Gothic"
 
 
 class HomePage(ctk.CTkFrame):
     def __init__(self, parent):
-        self.weather = "sunny"
+        super().__init__(parent, fg_color="#FFF7E8")
 
-        self.theme = {
-            "sunny": {
-                "bg": "#FFF7E8",
-                "weather": "맑음 24°C",
-                "music": "Happy Study Playlist",
-                "message": "휴식 시간에 가볍게 산책해보세요!",
-            },
-            "cloudy": {
-                "bg": "#EEF2F7",
-                "weather": "흐림 21°C",
-                "music": "Calm Focus Playlist",
-                "message": "차분하게 오늘 계획을 정리해보세요.",
-            },
-            "rainy": {
-                "bg": "#E5EAF2",
-                "weather": "비 18°C",
-                "music": "Lo-fi Rain Study",
-                "message": "따뜻한 차 한 잔과 함께 집중해보세요.",
-            },
-            "snowy": {
-                "bg": "#F4F8FF",
-                "weather": "눈 0°C",
-                "music": "Winter Piano",
-                "message": "조용한 시간 속에서 한 걸음씩 나아가요.",
-            },
-            "night": {
-                "bg": "#243B64",
-                "weather": "밤",
-                "music": "Night Focus",
-                "message": "오늘의 집중이 내일의 나를 만듭니다.",
-            },
-        }
+        self.analyzer = WeatherTimerAnalyzer()
 
-        super().__init__(
-            parent,
-            fg_color=self.theme[self.weather]["bg"],
-        )
+        self.focus_time = 25
+        self.break_time = 5
+
+        self.timer = None
 
         self.pack(fill="both", expand=True)
-        self.build_ui()
 
-    def build_ui(self):
-        data = self.theme[self.weather]
+        self._build_ui()
+        self.after(300, self.open_weather_popup)
 
+    # =========================
+    # popup
+    # =========================
+    def open_weather_popup(self):
+        popup = ctk.CTkToplevel(self)
+        popup.geometry("340x200")
+        popup.title("지역 입력")
+
+        popup.grab_set()
+
+        ctk.CTkLabel(
+            popup,
+            text="지역 입력",
+            font=(FONT_FAMILY, 16, "bold")
+        ).pack(pady=15)
+
+        entry = ctk.CTkEntry(popup)
+        entry.pack(pady=10)
+        entry.focus()
+
+        error = ctk.CTkLabel(popup, text="", text_color="red")
+        error.pack()
+
+        def submit(event=None):
+            location = entry.get().strip()
+
+            result = self.analyzer.fetch_and_analyze(location)
+
+            if not result["success"]:
+                error.configure(text=result["message"])
+                return
+
+            self.focus_time = result["recommended_focus"]
+            self.break_time = result["recommended_break"]
+
+            self.weather_card.configure(
+                text=(
+                    f"📍 {result['location']}\n"
+                    f"🌤 {result['weather_status']}  |  🌡 {result['temperature']}°C  |  💧 {result['humidity']}%\n"
+                    f"⏱ 집중 {result['recommended_focus']}분 / 휴식 {result['recommended_break']}분"
+                )
+            )
+
+            if self.timer:
+                self.timer.focus_minutes = self.focus_time
+                self.timer.break_minutes = self.break_time
+                self.timer.reset()
+
+            popup.destroy()
+
+        ctk.CTkButton(popup, text="확인", command=submit).pack(pady=10)
+        popup.bind("<Return>", submit)
+
+    # =========================
+    # UI
+    # =========================
+    def _build_ui(self):
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll.pack(fill="both", expand=True)
 
@@ -61,74 +85,100 @@ class HomePage(ctk.CTkFrame):
             scroll,
             text="일기예뽀",
             font=(FONT_FAMILY, 34, "bold"),
-        ).pack(pady=(34, 8))
+        ).pack(pady=(20, 10))
 
-        ctk.CTkLabel(
+        # 날씨 카드
+        self.weather_card = ctk.CTkLabel(
             scroll,
-            text=data["weather"],
-            font=(FONT_FAMILY, 17),
-        ).pack(pady=(0, 20))
+            text="날씨 정보를 입력하세요",
+            width=340,
+            height=100,
+            corner_radius=18,
+            fg_color="#FFFFFF",
+            justify="left",
+        )
+        self.weather_card.pack(pady=(10, 5))
 
-        create_timer_section(scroll)
+        # 🔥 타이머 (간격 줄임 핵심)
+        self.timer = create_timer_section(
+            scroll,
+            self.focus_time,
+            self.break_time
+        )
+        self.timer.pack(pady=(8, 6))
 
-        mid = ctk.CTkFrame(scroll, fg_color="transparent")
-        mid.pack(fill="x", padx=40, pady=(24, 18))
-
-        music = ctk.CTkFrame(mid, corner_radius=24, height=140)
-        music.pack(side="left", expand=True, fill="both", padx=(0, 10))
-        music.pack_propagate(False)
-
-        ctk.CTkLabel(
-            music,
-            text="오늘의 음악",
-            font=(FONT_FAMILY, 17, "bold"),
-        ).pack(pady=(28, 12))
-
-        ctk.CTkLabel(
-            music,
-            text=data["music"],
-            font=(FONT_FAMILY, 15),
-        ).pack()
-
-        msg = ctk.CTkFrame(mid, corner_radius=24, height=140)
-        msg.pack(side="left", expand=True, fill="both", padx=(10, 0))
-        msg.pack_propagate(False)
-
-        ctk.CTkLabel(
-            msg,
-            text="오늘의 멘트",
-            font=(FONT_FAMILY, 17, "bold"),
-        ).pack(pady=(24, 10))
-
-        ctk.CTkLabel(
-            msg,
-            text=data["message"],
-            font=(FONT_FAMILY, 15),
-            wraplength=260,
-        ).pack()
-
-        stats = ctk.CTkFrame(scroll, corner_radius=24, height=210)
-        stats.pack(fill="x", padx=40, pady=(18, 42))
+        # 🔥 통계 (위쪽 간격 제거)
+        stats = ctk.CTkFrame(
+            scroll,
+            width=340,
+            height=110,
+            corner_radius=18,
+            fg_color="#FFFFFF",
+        )
+        stats.pack(pady=(0, 6))
         stats.pack_propagate(False)
 
         ctk.CTkLabel(
             stats,
-            text="학습 통계",
-            font=(FONT_FAMILY, 20, "bold"),
-        ).pack(pady=(30, 18))
+            text="📊 공부 통계",
+            font=(FONT_FAMILY, 14, "bold"),
+        ).pack(pady=(10, 5))
 
         ctk.CTkLabel(
             stats,
-            text="오늘 공부 시간 : 2시간 15분",
-            font=(FONT_FAMILY, 15),
-        ).pack(pady=6)
+            text=(
+                "오늘 공부 시간: 2시간 15분\n"
+                "이번 주 총 공부: 11시간 40분\n"
+                "날씨별 평균 집중: 28분"
+            ),
+            font=(FONT_FAMILY, 12),
+            justify="left",
+        ).pack()
+
+        # 하단
+        bottom_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        bottom_row.pack(pady=(0, 8))
+
+        music_box = ctk.CTkFrame(
+            bottom_row,
+            width=160,
+            height=90,
+            corner_radius=15,
+            fg_color="#FFFFFF",
+        )
+        music_box.pack(side="left", padx=5)
+        music_box.pack_propagate(False)
+
         ctk.CTkLabel(
-            stats,
-            text="이번 주 공부 시간 : 11시간 40분",
-            font=(FONT_FAMILY, 15),
-        ).pack(pady=6)
+            music_box,
+            text="🎵 음악",
+            font=(FONT_FAMILY, 13, "bold"),
+        ).pack(pady=8)
+
         ctk.CTkLabel(
-            stats,
-            text="평균 집중 시간 : 28분",
-            font=(FONT_FAMILY, 15),
-        ).pack(pady=6)
+            music_box,
+            text="재생 없음",
+            font=(FONT_FAMILY, 11),
+        ).pack()
+
+        memo_box = ctk.CTkFrame(
+            bottom_row,
+            width=160,
+            height=90,
+            corner_radius=15,
+            fg_color="#FFFFFF",
+        )
+        memo_box.pack(side="left", padx=5)
+        memo_box.pack_propagate(False)
+
+        ctk.CTkLabel(
+            memo_box,
+            text="💬 멘트",
+            font=(FONT_FAMILY, 13, "bold"),
+        ).pack(pady=8)
+
+        ctk.CTkLabel(
+            memo_box,
+            text="오늘도 집중해보자",
+            font=(FONT_FAMILY, 11),
+        ).pack()
